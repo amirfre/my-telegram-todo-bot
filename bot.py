@@ -5,6 +5,10 @@ import html
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
@@ -26,6 +30,24 @@ CREATE TABLE IF NOT EXISTS tasks (
   done_at TEXT
 );
 """
+
+
+
+def start_health_server():
+    port = int(os.environ.get("PORT", "8080"))
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"OK")
+
+        def log_message(self, format, *args):
+            return
+
+    server = HTTPServer(("0.0.0.0", port), Handler)
+    server.serve_forever()
 
 # ---------------- DB ----------------
 def db():
@@ -373,7 +395,9 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text), group=1)
 
     print("🤖 הבוט רץ ומוכן (Polling)...")
+    threading.Thread(target=start_health_server, daemon=True).start()
     app.run_polling(close_loop=False)
 
 if __name__ == "__main__":
     main()
+
